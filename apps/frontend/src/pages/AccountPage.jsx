@@ -1,22 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useClerk } from "@clerk/clerk-react";
 import { useAuth } from "../AuthContext.jsx";
 import { api } from "../api.js";
 import { ButtonPrimary, StatusAlert } from "../components/ui.jsx";
 
 export default function AccountPage() {
   const { user, logout } = useAuth();
+  const { openUserProfile } = useClerk();
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState(null);
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [status, setStatus] = useState("");
-
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordStatus, setPasswordStatus] = useState("");
 
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
@@ -84,26 +81,6 @@ export default function AccountPage() {
     }
   }
 
-  async function changePassword() {
-    if (newPassword !== confirmPassword) {
-      setPasswordStatus("Passwords do not match");
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPasswordStatus("Password must be at least 6 characters");
-      return;
-    }
-    try {
-      const { data } = await api.changePassword(currentPassword, newPassword);
-      setPasswordStatus(data.message);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (error) {
-      setPasswordStatus(error?.response?.data?.message || "Failed to change password");
-    }
-  }
-
   async function deleteAccount() {
     if (deleteConfirm !== "DELETE") {
       setStatus("Type DELETE to confirm account deletion");
@@ -150,7 +127,7 @@ export default function AccountPage() {
             <p className="font-sans font-semibold" style={{ color: "var(--text-primary)" }}>{profile?.username || user?.username}</p>
             <p className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>{profile?.email || user?.email}</p>
             <p className="font-mono text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>
-              Member since {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : "--"}
+              Member since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : "--"}
             </p>
             {avatarUrl && (
               <button type="button" onClick={removeAvatar} className="mt-2 font-mono text-[10px] tracking-wider text-rose-400 hover:text-rose-300 transition">
@@ -170,25 +147,13 @@ export default function AccountPage() {
         </div>
       </div>
 
-      {/* Change Password */}
+      {/* Security — managed by Clerk */}
       <div className="glass-panel rounded-2xl p-6 space-y-4">
-        <p className="font-mono text-[10px] tracking-[0.3em] uppercase" style={{ color: "var(--text-muted)" }}>CHANGE PASSWORD</p>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-[10px] font-mono uppercase tracking-[0.3em] mb-1.5" style={{ color: "var(--text-muted)" }}>CURRENT PASSWORD</label>
-            <input value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} type="password" className="input-void w-full" />
-          </div>
-          <div>
-            <label className="block text-[10px] font-mono uppercase tracking-[0.3em] mb-1.5" style={{ color: "var(--text-muted)" }}>NEW PASSWORD</label>
-            <input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" placeholder="At least 6 characters" className="input-void w-full" />
-          </div>
-          <div>
-            <label className="block text-[10px] font-mono uppercase tracking-[0.3em] mb-1.5" style={{ color: "var(--text-muted)" }}>CONFIRM NEW PASSWORD</label>
-            <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" className="input-void w-full" />
-          </div>
-          <ButtonPrimary onClick={changePassword}>Update Password</ButtonPrimary>
-          <StatusAlert text={passwordStatus} variant="info" />
-        </div>
+        <p className="font-mono text-[10px] tracking-[0.3em] uppercase" style={{ color: "var(--text-muted)" }}>SECURITY</p>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          Password, email, and two-factor authentication are managed securely by Clerk.
+        </p>
+        <ButtonPrimary onClick={() => openUserProfile()}>Manage Security Settings</ButtonPrimary>
       </div>
 
       {/* Danger Zone */}

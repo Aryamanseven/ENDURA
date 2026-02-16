@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import { connectDb } from "./config/db.js";
+import { clerkMiddleware } from "@clerk/express";
 import authRoutes from "./routes/auth.js";
 import runRoutes from "./routes/runs.js";
 import certificateRoutes from "./routes/certificates.js";
@@ -27,8 +27,11 @@ app.use(
 );
 app.use(express.json());
 
+// Clerk middleware – reads Bearer <clerk-session-token> and populates req.auth
+app.use(clerkMiddleware());
+
 app.get("/health", (_, res) => {
-  res.json({ status: "ok", service: "vantage-server" });
+  res.json({ status: "ok", service: "endura-server" });
 });
 
 app.use("/api/auth", authLimiter);
@@ -41,9 +44,8 @@ const port = Number(process.env.PORT || 5000);
 
 async function bootstrap() {
   try {
-    await connectDb();
     app.listen(port, () => {
-      console.log(`Vantage server running on port ${port}`);
+      console.log(`ENDURA server running on port ${port}`);
     });
   } catch (error) {
     console.error("Failed to start server", error);

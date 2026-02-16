@@ -42,7 +42,7 @@ export default function RunHistoryPage() {
     if (!confirm("Delete this run? This cannot be undone.")) return;
     try {
       await api.deleteRun(runId);
-      setRuns((prev) => prev.filter((r) => r._id !== runId));
+      setRuns((prev) => prev.filter((r) => r.id !== runId));
     } catch {
       /* handled */
     }
@@ -80,8 +80,8 @@ export default function RunHistoryPage() {
       <div className="space-y-3">
         {filtered.map((run) => (
           <div
-            key={run._id}
-            onClick={() => navigate(`/runs/${run._id}`)}
+            key={run.id}
+            onClick={() => navigate(`/runs/${run.id}`)}
             className="glass-panel rounded-2xl p-5 cursor-pointer group hover:border-neon/20 transition-colors"
           >
             <div className="flex flex-wrap justify-between gap-3">
@@ -111,7 +111,7 @@ export default function RunHistoryPage() {
               <div className="flex items-start">
                 <button
                   type="button"
-                  onClick={(e) => handleDelete(run._id, e)}
+                  onClick={(e) => handleDelete(run.id, e)}
                   className="font-mono text-[10px] tracking-wider text-rose-400/60 hover:text-rose-400 transition px-3 py-1.5 rounded-lg border border-rose-500/10 hover:border-rose-500/30"
                 >
                   DELETE

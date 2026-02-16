@@ -1,49 +1,56 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useCallback, useState } from "react";
+import { useUser, useAuth as useClerkAuth } from "@clerk/clerk-react";
+import { api } from "./api.js";
 
 const AuthContext = createContext(null);
-const TOKEN_KEY = "endura_token";
-const USER_KEY = "endura_user";
-const LEGACY_TOKEN_KEY = "vantage_token";
-const LEGACY_USER_KEY = "vantage_user";
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(
-    localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY) || ""
-  );
-  const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem(USER_KEY) || localStorage.getItem(LEGACY_USER_KEY);
-    try {
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
+  const { isSignedIn, user: clerkUser, isLoaded } = useUser();
+  const { getToken, signOut } = useClerkAuth();
+  const [synced, setSynced] = useState(false);
 
-  const saveAuth = useCallback((data) => {
-    localStorage.setItem(TOKEN_KEY, data.token);
-    localStorage.removeItem(LEGACY_TOKEN_KEY);
-    localStorage.setItem(
-      USER_KEY,
-      JSON.stringify({ _id: data._id, username: data.username, email: data.email })
-    );
-    localStorage.removeItem(LEGACY_USER_KEY);
-    setToken(data.token);
-    setUser({ _id: data._id, username: data.username, email: data.email });
-  }, []);
+  // Expose getToken globally so api.js can use it
+  useEffect(() => {
+    if (isLoaded) {
+      window.__clerkGetToken = isSignedIn ? getToken : null;
+    }
+  }, [isLoaded, isSignedIn, getToken]);
+
+  // Sync profile to backend once after sign-in
+  useEffect(() => {
+    if (!isSignedIn || synced) return;
+    api.syncProfile({
+      username: clerkUser?.fullName || clerkUser?.firstName || clerkUser?.primaryEmailAddress?.emailAddress?.split("@")[0] || "runner",
+      email: clerkUser?.primaryEmailAddress?.emailAddress || ""
+    }).catch(() => {});
+    setSynced(true);
+  }, [isSignedIn, synced, clerkUser]);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem(LEGACY_TOKEN_KEY);
-    localStorage.removeItem(LEGACY_USER_KEY);
-    setToken("");
-    setUser(null);
-  }, []);
+    window.__clerkGetToken = null;
+    setSynced(false);
+    signOut();
+  }, [signOut]);
 
-  const isAuthenticated = Boolean(token && user);
+  const user = isSignedIn && clerkUser
+    ? {
+        _id: clerkUser.id,
+        username: clerkUser.fullName || clerkUser.firstName || clerkUser.primaryEmailAddress?.emailAddress?.split("@")[0] || "",
+        email: clerkUser.primaryEmailAddress?.emailAddress || ""
+      }
+    : null;
 
   return (
-    <AuthContext.Provider value={{ token, user, isAuthenticated, saveAuth, logout }}>
+    <AuthContext.Provider
+      value={{
+        token: isSignedIn ? "clerk" : "",
+        user,
+        isAuthenticated: Boolean(isSignedIn),
+        isLoaded,
+        logout,
+        saveAuth: () => {} // no-op, Clerk manages this
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

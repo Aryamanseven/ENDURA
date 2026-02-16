@@ -1,102 +1,169 @@
 # ENDURA.RUN
 
-Monorepo implementing the ENDURA.RUN sidecar architecture:
+Full-stack running analytics platform with ML-powered marathon predictions.
 
-- `apps/frontend` — React + Tailwind dashboard (upload, charts, map)
-- `apps/server` — Node.js + Express manager API (upload + MongoDB persistence + ML delegation)
-- `apps/ml-service` — FastAPI ML sidecar (`/predict`, `/train`)
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18 + Vite + Tailwind CSS |
+| Auth | [Clerk](https://clerk.com) (email, Google, etc.) |
+| Backend API | Node.js + Express |
+| Database | [Supabase](https://supabase.com) (Postgres) |
+| File Storage | Supabase Storage (GPX, certificates, avatars) |
+| ML Service | FastAPI + scikit-learn sidecar |
+| Deployment | Vercel (frontend) · Render (backend + ML) |
+
+## Monorepo Structure
+
+```
+apps/
+  frontend/   — React + Tailwind dashboard
+  server/     — Express API (Clerk auth + Supabase)
+  ml-service/ — FastAPI ML sidecar (/predict, /train)
+```
 
 ## Architecture
 
-`Client -> Node API -> MongoDB + FastAPI ML Sidecar -> Node API -> Client`
+```
+Browser → Clerk Auth → React SPA → Express API → Supabase Postgres
+                                        ↕
+                                  FastAPI ML Sidecar
+```
 
-## API Contracts
+---
 
-### Node API (port 5000)
+## Setup
 
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/google`
-- `POST /api/runs/upload` (multipart `gpx`)
-- `POST /api/runs/train` (one-click retrain from MongoDB runs)
-- `GET /api/runs`
-- `GET /api/runs/:id`
-- `DELETE /api/runs/:id`
-- `GET /api/certificates`
-- `POST /api/certificates`
-- `GET /api/certificates/:id/file`
-- `DELETE /api/certificates/:id`
+### 1. Supabase
 
-### Python ML API (port 8000)
+1. Create a project at [supabase.com](https://supabase.com)
+2. Go to **SQL Editor → New Query** and paste the contents of `apps/server/supabase/schema.sql`, then run it
+3. Go to **Storage** and create three buckets:
+   - `gpx-files` (private)
+   - `certificates` (private)
+   - `avatars` (public)
+4. Copy **Project URL** and **service_role key** from Settings → API
 
-- `POST /predict`
-- `POST /train`
+### 2. Clerk
 
-### Personalized Prediction Behavior
+1. Create an application at [clerk.com](https://clerk.com)
+2. Enable Email + Password sign-in (and optionally Google, GitHub, etc.)
+3. Copy the **Publishable Key** (`pk_test_...`) and **Secret Key** (`sk_test_...`)
 
-- `POST /predict` blends three signals:
-	- Global model prediction
-	- User-history projection from the runner's own previous runs
-	- Similar-runner cohort projection (pace/distance neighborhood)
-- Elevation and recent load drive `fatigue_factor`, which adjusts final marathon-time prediction.
-- Response includes:
-	- `predicted_marathon_time` (seconds)
-	- `predicted_times` (`five_k`, `ten_k`, `half_marathon`, `twenty_five_k`, `marathon`)
-	- `fatigue_factor`
-	- `confidence` (0-1)
-	- `model_source` (`global`, `cohort-blend`, or `personalized`)
+### 3. Environment Variables
 
-### Model Source Meanings
+**`apps/server/.env`**
+```env
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+CLERK_SECRET_KEY=sk_test_...
+CLERK_PUBLISHABLE_KEY=pk_test_...
+ML_SERVICE_URL=http://localhost:8001
+PORT=5000
+CORS_ORIGIN=http://localhost:5173
+```
 
-- `global`: prediction is dominated by the shared global model trained on aggregate running patterns.
-- `cohort-blend`: prediction blends global model with similar-runner cohort history.
-- `personalized`: prediction is dominated by the user's own run history (recency-weighted).
+**`apps/frontend/.env`**
+```env
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+VITE_SERVER_URL=http://localhost:5000
+```
 
-### Retraining
-
-- `POST /train` accepts optional real samples via `runs`.
-- If at least 10 samples are provided, model trains from those runs; otherwise it falls back to synthetic bootstrap data.
-- `POST /api/runs/train` in Node automates this by fetching run history from MongoDB and forwarding it to ML `/train`.
-	- Optional body: `{ "user_id": "...", "algorithm": "gradient_boosting" }`
-	- Without `user_id`, it trains on all users' runs.
-
-## Quick Start (Windows PowerShell)
-
-### 1) Start ML service
+### 4. Run Locally
 
 ```powershell
-cd .\apps\ml-service
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+# ML Service
+cd apps/ml-service
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
+uvicorn app.main:app --reload --port 8001
 
-### 2) Start Node server
-
-```powershell
-cd .\apps\server
+# Backend
+cd apps/server
 npm install
-copy .env.example .env
 npm run dev
-```
 
-### 3) Start React frontend
-
-```powershell
-cd .\apps\frontend
+# Frontend
+cd apps/frontend
 npm install
 npm run dev
 ```
+
+---
+
+## Deployment
+
+### Frontend → Vercel
+
+1. Connect your GitHub repo to [vercel.com](https://vercel.com)
+2. Set **Root Directory** to `apps/frontend`
+3. Set **Build Command** to `npm run build` and **Output Directory** to `dist`
+4. Add env vars: `VITE_CLERK_PUBLISHABLE_KEY`, `VITE_SERVER_URL` (your Render backend URL)
+
+### Backend → Render
+
+1. Create a new **Web Service** from your GitHub repo
+2. Set **Root Directory** to `apps/server`
+3. Set **Build Command** to `npm install` and **Start Command** to `node src/index.js`
+4. Add all env vars from `apps/server/.env.example`
+5. Set `CORS_ORIGIN` to your Vercel frontend URL
+
+### ML Service → Render
+
+1. Create a new **Web Service**, root directory `apps/ml-service`
+2. **Build Command**: `pip install -r requirements.txt`
+3. **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+4. Set the backend's `ML_SERVICE_URL` to this service's URL
+
+---
+
+## API Routes
+
+### Auth
+- `POST /api/auth/sync` — Upserts user profile after Clerk sign-in
+
+### Runs
+- `POST /api/runs/upload` — Upload GPX file
+- `GET /api/runs` — List runs
+- `GET /api/runs/stats` — Aggregated stats
+- `GET /api/runs/:id` — Run detail
+- `DELETE /api/runs/:id` — Delete run
+- `POST /api/runs/train` — Retrain ML model
+
+### Certificates
+- `GET /api/certificates` — List certificates
+- `POST /api/certificates` — Upload certificate
+- `GET /api/certificates/:id/file` — Download file
+- `DELETE /api/certificates/:id` — Delete certificate
+
+### Account
+- `GET /api/account/profile` — Get profile
+- `PUT /api/account/profile` — Update profile
+- `POST /api/account/profile-picture` — Upload avatar
+- `GET /api/account/profile-picture` — Get avatar
+- `DELETE /api/account/profile-picture` — Remove avatar
+- `DELETE /api/account` — Delete account + all data
+
+### ML Sidecar (port 8001)
+- `POST /predict` — Marathon time prediction
+- `POST /train` — Retrain model
+
+---
+
+## ML Prediction
+
+The `/predict` endpoint blends three signals:
+- **Global model** — trained on aggregate running patterns
+- **User-history projection** — from the runner's own previous runs
+- **Cohort projection** — pace/distance neighborhood of similar runners
+
+Elevation and recent load drive a `fatigue_factor` that adjusts the final prediction.
 
 ## Notes
 
-- Register/login first. Runs and certificates are scoped to the authenticated user via Bearer token.
-- Uploaded GPX XML is stored in MongoDB (`gpx_raw`) and also stored on disk path (`gpx_file_url`).
-- Certificates support optional file upload in `pdf`, `jpeg`, `jpg`, or `png` format.
-- Certificate form auto-fill reads uploaded files (OCR/text extraction) and pre-populates detected fields.
-- Security hardening includes JWT auth, `helmet` headers, auth rate limiting, MIME/extension filters, and certificate upload size cap (10MB).
-- Ensure MongoDB Atlas URI is set in `apps/server/.env`.
+- Runs and certificates are scoped to the authenticated user via Clerk JWT
+- GPX files are stored in Supabase Storage; raw XML is also saved in the `gpx_raw` column
+- Certificates support PDF, JPEG, JPG, PNG upload (10 MB limit) with OCR auto-fill
+- Password management, 2FA, and social login are handled entirely by Clerk
 
 ## Environment
 

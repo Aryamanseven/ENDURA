@@ -1,107 +1,144 @@
 import axios from "axios";
 import { API_URL } from "./config.js";
 
-const TOKEN_KEY = "endura_token";
-const LEGACY_TOKEN_KEY = "vantage_token";
+/**
+ * Get a Clerk session token (set by AuthContext on the window object).
+ * Returns an empty string if not signed in.
+ */
+async function getClerkToken() {
+  if (typeof window !== "undefined" && window.__clerkGetToken) {
+    try {
+      return (await window.__clerkGetToken()) || "";
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
 
 function authHeaders(token) {
   return { Authorization: `Bearer ${token}` };
 }
 
-function getToken() {
-  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY) || "";
-}
-
-function headers() {
-  return authHeaders(getToken());
+async function headers() {
+  const token = await getClerkToken();
+  return authHeaders(token);
 }
 
 export const api = {
-  // Auth
-  login: (email, password) =>
-    axios.post(`${API_URL}/api/auth/login`, { email, password }),
-
-  register: (username, email, password) =>
-    axios.post(`${API_URL}/api/auth/register`, { username, email, password }),
-
-  googleLogin: (credential) =>
-    axios.post(`${API_URL}/api/auth/google`, { credential }),
-
-  forgotPassword: (email) =>
-    axios.post(`${API_URL}/api/auth/forgot-password`, { email }),
-
-  resetPassword: (token, newPassword) =>
-    axios.post(`${API_URL}/api/auth/reset-password`, { token, newPassword }),
+  // Auth – sync profile after Clerk sign-in
+  syncProfile: async ({ username, email }) => {
+    const h = await headers();
+    return axios.post(`${API_URL}/api/auth/sync`, { username, email }, { headers: h });
+  },
 
   // Runs
-  getRuns: () =>
-    axios.get(`${API_URL}/api/runs`, { headers: headers() }),
+  getRuns: async () => {
+    const h = await headers();
+    return axios.get(`${API_URL}/api/runs`, { headers: h });
+  },
 
-  getRun: (id) =>
-    axios.get(`${API_URL}/api/runs/${id}`, { headers: headers() }),
+  getRun: async (id) => {
+    const h = await headers();
+    return axios.get(`${API_URL}/api/runs/${id}`, { headers: h });
+  },
 
-  uploadRun: (formData) =>
-    axios.post(`${API_URL}/api/runs/upload`, formData, {
-      headers: { ...headers(), "Content-Type": "multipart/form-data" }
-    }),
+  uploadRun: async (formData) => {
+    const h = await headers();
+    return axios.post(`${API_URL}/api/runs/upload`, formData, {
+      headers: { ...h, "Content-Type": "multipart/form-data" }
+    });
+  },
 
-  deleteRun: (id) =>
-    axios.delete(`${API_URL}/api/runs/${id}`, { headers: headers() }),
+  deleteRun: async (id) => {
+    const h = await headers();
+    return axios.delete(`${API_URL}/api/runs/${id}`, { headers: h });
+  },
 
-  getRunStats: () =>
-    axios.get(`${API_URL}/api/runs/stats`, { headers: headers() }),
+  getRunStats: async () => {
+    const h = await headers();
+    return axios.get(`${API_URL}/api/runs/stats`, { headers: h });
+  },
 
-  getAthleteFitness: () =>
-    axios.get(`${API_URL}/api/runs/athlete-fitness`, { headers: headers() }),
+  getAthleteFitness: async () => {
+    const h = await headers();
+    return axios.get(`${API_URL}/api/runs/athlete-fitness`, { headers: h });
+  },
 
-  refreshPredictions: () =>
-    axios.post(`${API_URL}/api/runs/refresh-predictions`, {}, { headers: headers() }),
+  refreshPredictions: async () => {
+    const h = await headers();
+    return axios.post(`${API_URL}/api/runs/refresh-predictions`, {}, { headers: h });
+  },
 
-  trainModel: (algorithm = "gradient_boosting") =>
-    axios.post(`${API_URL}/api/runs/train`, { algorithm }, { headers: headers() }),
+  trainModel: async (algorithm = "gradient_boosting") => {
+    const h = await headers();
+    return axios.post(`${API_URL}/api/runs/train`, { algorithm }, { headers: h });
+  },
 
   // Certificates
-  getCertificates: () =>
-    axios.get(`${API_URL}/api/certificates`, { headers: headers() }),
+  getCertificates: async () => {
+    const h = await headers();
+    return axios.get(`${API_URL}/api/certificates`, { headers: h });
+  },
 
-  addCertificate: (formData) =>
-    axios.post(`${API_URL}/api/certificates`, formData, {
-      headers: { ...headers(), "Content-Type": "multipart/form-data" }
-    }),
+  addCertificate: async (formData) => {
+    const h = await headers();
+    return axios.post(`${API_URL}/api/certificates`, formData, {
+      headers: { ...h, "Content-Type": "multipart/form-data" }
+    });
+  },
 
-  getCertificateFile: (id) =>
-    axios.get(`${API_URL}/api/certificates/${id}/file`, {
-      headers: headers(),
+  getCertificateFile: async (id) => {
+    const h = await headers();
+    return axios.get(`${API_URL}/api/certificates/${id}/file`, {
+      headers: h,
       responseType: "blob"
-    }),
+    });
+  },
 
-  deleteCertificate: (id) =>
-    axios.delete(`${API_URL}/api/certificates/${id}`, { headers: headers() }),
+  deleteCertificate: async (id) => {
+    const h = await headers();
+    return axios.delete(`${API_URL}/api/certificates/${id}`, { headers: h });
+  },
 
   // Account
-  getProfile: () =>
-    axios.get(`${API_URL}/api/account/profile`, { headers: headers() }),
+  getProfile: async () => {
+    const h = await headers();
+    return axios.get(`${API_URL}/api/account/profile`, { headers: h });
+  },
 
-  updateProfile: (data) =>
-    axios.put(`${API_URL}/api/account/profile`, data, { headers: headers() }),
+  updateProfile: async (data) => {
+    const h = await headers();
+    return axios.put(`${API_URL}/api/account/profile`, data, { headers: h });
+  },
 
-  uploadProfilePicture: (formData) =>
-    axios.post(`${API_URL}/api/account/profile-picture`, formData, {
-      headers: { ...headers(), "Content-Type": "multipart/form-data" }
-    }),
+  uploadProfilePicture: async (formData) => {
+    const h = await headers();
+    return axios.post(`${API_URL}/api/account/profile-picture`, formData, {
+      headers: { ...h, "Content-Type": "multipart/form-data" }
+    });
+  },
 
-  getProfilePicture: () =>
-    axios.get(`${API_URL}/api/account/profile-picture`, {
-      headers: headers(),
+  getProfilePicture: async () => {
+    const h = await headers();
+    return axios.get(`${API_URL}/api/account/profile-picture`, {
+      headers: h,
       responseType: "blob"
-    }),
+    });
+  },
 
-  deleteProfilePicture: () =>
-    axios.delete(`${API_URL}/api/account/profile-picture`, { headers: headers() }),
+  deleteProfilePicture: async () => {
+    const h = await headers();
+    return axios.delete(`${API_URL}/api/account/profile-picture`, { headers: h });
+  },
 
-  changePassword: (currentPassword, newPassword) =>
-    axios.put(`${API_URL}/api/account/change-password`, { currentPassword, newPassword }, { headers: headers() }),
+  changePassword: async (currentPassword, newPassword) => {
+    const h = await headers();
+    return axios.put(`${API_URL}/api/account/change-password`, { currentPassword, newPassword }, { headers: h });
+  },
 
-  deleteAccount: () =>
-    axios.delete(`${API_URL}/api/account/delete`, { headers: headers() })
+  deleteAccount: async () => {
+    const h = await headers();
+    return axios.delete(`${API_URL}/api/account/delete`, { headers: h });
+  }
 };

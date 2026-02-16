@@ -119,7 +119,7 @@ export default function CertificatesPage() {
 
   async function openFile(cert) {
     try {
-      const response = await api.getCertificateFile(cert._id);
+      const response = await api.getCertificateFile(cert.id);
       const blobUrl = window.URL.createObjectURL(response.data);
       setPreview({
         blobUrl,
@@ -247,7 +247,7 @@ export default function CertificatesPage() {
         ) : (
           <div className="space-y-3">
             {certificates.map((cert) => (
-              <div key={cert._id} className="glass-panel rounded-2xl p-5 flex flex-wrap justify-between gap-3 hover:border-neon/20 transition-colors">
+              <div key={cert.id} className="glass-panel rounded-2xl p-5 flex flex-wrap justify-between gap-3 hover:border-neon/20 transition-colors">
                 <div className="space-y-1.5">
                   <p className="font-sans font-semibold text-lg" style={{ color: "var(--text-primary)" }}>{cert.title}</p>
                   <div className="flex flex-wrap items-center gap-x-4 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
@@ -264,7 +264,7 @@ export default function CertificatesPage() {
                       PREVIEW
                     </button>
                   )}
-                  <button onClick={() => deleteCert(cert._id)} className="font-mono text-[10px] tracking-wider text-rose-400/60 hover:text-rose-400 transition px-3 py-1.5 rounded-lg border border-rose-500/10 hover:border-rose-500/30">
+                  <button onClick={() => deleteCert(cert.id)} className="font-mono text-[10px] tracking-wider text-rose-400/60 hover:text-rose-400 transition px-3 py-1.5 rounded-lg border border-rose-500/10 hover:border-rose-500/30">
                     DELETE
                   </button>
                 </div>
