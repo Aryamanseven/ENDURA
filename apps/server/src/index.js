@@ -30,7 +30,17 @@ app.use(express.json());
 // Clerk middleware – reads Bearer <clerk-session-token> and populates req.auth
 app.use(clerkMiddleware());
 
+app.get("/", (_, res) => {
+  res.json({ status: "ok", service: "endura-server" });
+});
+
 app.get("/health", (_, res) => {
+  res.json({ status: "ok", service: "endura-server" });
+});
+
+// Some hosts intercept "/health" for platform checks.
+// Provide an alternate endpoint for manual verification.
+app.get("/healthz", (_, res) => {
   res.json({ status: "ok", service: "endura-server" });
 });
 
