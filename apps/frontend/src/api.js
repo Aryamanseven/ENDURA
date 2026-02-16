@@ -1,12 +1,15 @@
 import axios from "axios";
 import { API_URL } from "./config.js";
 
+const TOKEN_KEY = "endura_token";
+const LEGACY_TOKEN_KEY = "vantage_token";
+
 function authHeaders(token) {
   return { Authorization: `Bearer ${token}` };
 }
 
 function getToken() {
-  return localStorage.getItem("vantage_token") || "";
+  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY) || "";
 }
 
 function headers() {

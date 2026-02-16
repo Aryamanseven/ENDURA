@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useEffect } from "react";
 
 const ThemeContext = createContext();
+const THEME_KEY = "endura-theme";
+const LEGACY_THEME_KEY = "vantage-theme";
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     try {
-      return localStorage.getItem("vantage-theme") || "dark";
+      return localStorage.getItem(THEME_KEY) || localStorage.getItem(LEGACY_THEME_KEY) || "dark";
     } catch {
       return "dark";
     }
@@ -21,7 +23,8 @@ export function ThemeProvider({ children }) {
       root.classList.remove("light");
     }
     try {
-      localStorage.setItem("vantage-theme", theme);
+      localStorage.setItem(THEME_KEY, theme);
+      localStorage.removeItem(LEGACY_THEME_KEY);
     } catch {}
   }, [theme]);
 
